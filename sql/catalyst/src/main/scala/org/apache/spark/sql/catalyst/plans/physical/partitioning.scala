@@ -90,6 +90,13 @@ case class ClusteredDistribution(
       "An AllTuples should be used to represent a distribution that only has " +
       "a single partition.")
 
+  // 比如 HashAggregateExec SparkPlan 的 requiredChildDistribution 类型为 List[ClusteredDistribution]
+  // 当 child.outputPartitioning.satisfies(distribution) 不满足时
+  // 则会给 child 节点添加一个 ShuffleExchangeExec 的父节点，其 Partitioning 类型为 HashPartitioning
+  // 见 EnsureRequirements 规则：ShuffleExchangeExec(distribution.createPartitioning(numPartitions), child, shuffleOrigin)
+  //
+  // HashAggregateExec: requiredChildDistribution: List[ClusteredDistribution]
+  // SortMergeJoinExec: requiredChildDistribution: Seq[ClusteredDistribution]
   override def createPartitioning(numPartitions: Int): Partitioning = {
     assert(requiredNumPartitions.isEmpty || requiredNumPartitions.get == numPartitions,
       s"This ClusteredDistribution requires ${requiredNumPartitions.get} partitions, but " +
@@ -304,8 +311,9 @@ case class HashPartitioning(expressions: Seq[Expression], numPartitions: Int)
    * Returns an expression that will produce a valid partition ID(i.e. non-negative and is less
    * than numPartitions) based on hashing expressions.
    *
-   * new Murmur3Hash(expressions) 返回 hash value
-   * Pmod 计算 hash value % numPartition
+   * 根据 expressions 得到对应的 partition ID，即对应到哪个 partition 分区
+   * new Murmur3Hash(expressions) 返回 hash_value
+   * Pmod 计算 hash_value % numPartition
    */
   def partitionIdExpression: Expression = Pmod(new Murmur3Hash(expressions), Literal(numPartitions))
 

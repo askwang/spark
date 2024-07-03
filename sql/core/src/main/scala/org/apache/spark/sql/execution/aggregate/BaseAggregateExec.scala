@@ -107,6 +107,7 @@ trait BaseAggregateExec extends UnaryExecNode with PartitioningPreservingUnaryEx
                 "constructing required child distribution!")
           }
         } else {
+          // HashAggregateExec 节点对子节点的 Distribution 要求
           ClusteredDistribution(exprs) :: Nil
         }
       case None => UnspecifiedDistribution :: Nil

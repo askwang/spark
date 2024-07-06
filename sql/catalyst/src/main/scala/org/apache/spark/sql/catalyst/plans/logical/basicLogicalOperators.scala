@@ -1781,6 +1781,8 @@ trait HasPartitionExpressions extends SQLConfHelper {
   protected def partitioning: Partitioning = if (partitionExpressions.isEmpty) {
     RoundRobinPartitioning(numPartitions)
   } else {
+    // partition 的列是否都是 SortOrder 类型
+    // askwang-todo: 怎样判断一个 Expression 是否是 SortOrder
     val (sortOrder, nonSortOrder) = partitionExpressions.partition(_.isInstanceOf[SortOrder])
     require(sortOrder.isEmpty || nonSortOrder.isEmpty,
       s"${getClass.getSimpleName} expects that either all its `partitionExpressions` are of type " +
@@ -1810,6 +1812,7 @@ case class RepartitionByExpression(
     child: LogicalPlan,
     optNumPartitions: Option[Int]) extends RepartitionOperation with HasPartitionExpressions {
 
+  // 在 SparkStrategyies 的 BasicOperators 规则中将 RepartitionByExpression 转为 ShuffleExchangeExec
   override val partitioning: Partitioning = {
     // partition 的分区方式
     if (numPartitions == 1) {

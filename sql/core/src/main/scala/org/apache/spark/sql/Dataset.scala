@@ -3513,6 +3513,8 @@ class Dataset[T] private[sql](
    */
   @scala.annotation.varargs
   def repartition(partitionExprs: Column*): Dataset[T] = {
+    // 见 BasicOperator 规则，如果指定了 numPartitions，则走 REPARTITION_BY_NUM 方式
+    // None 表示走 REPARTITION_BY_COL 方式
     repartitionByExpression(None, partitionExprs)
   }
 

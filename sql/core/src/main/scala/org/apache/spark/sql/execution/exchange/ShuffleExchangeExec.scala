@@ -271,6 +271,8 @@ object ShuffleExchangeExec {
       case HashPartitioning(_, n) =>
         // For HashPartitioning, the partitioning key is already a valid partition ID, as we use
         // `HashPartitioning.partitionIdExpression` to produce partitioning key.
+        // 调用 HashPartitioning.partitionIdExpression 生成 getPartition(key: Any) 的 key
+        // key 经过 partitionIdExpression Pmod 处理后为 int 值，本身就是一个有效的 partition ID
         new PartitionIdPassthrough(n)
       case RangePartitioning(sortingExpressions, numPartitions) =>
         // Extract only fields used for sorting to avoid collecting large fields that does not
@@ -297,6 +299,8 @@ object ShuffleExchangeExec {
       case _ => throw new IllegalStateException(s"Exchange not implemented for $newPartitioning")
       // TODO: Handle BroadcastPartitioning.
     }
+
+    // 给定一个 partition ID 值，通过 partitionKeyExtractor 提取对应的 partition key
     def getPartitionKeyExtractor(): InternalRow => Any = newPartitioning match {
       case RoundRobinPartitioning(numPartitions) =>
         // Distributes elements evenly across output partitions, starting from a random partition.
@@ -315,9 +319,12 @@ object ShuffleExchangeExec {
         }
       case h: HashPartitioning =>
         // 根据 h.partitionIdExpression 创建一个 Projection
+        // h.partitionIdExpression 中的 expressions: Seq[Expressions] 对象
+        // 即为 repartition(Seq(col(uuid),col(_bucket_)) 的列。(SHUFFLE_BY_COL的实现）
         val projection: UnsafeProjection = UnsafeProjection.create(h.partitionIdExpression :: Nil, outputAttributes)
-        // projection(row) 返回 UnsafeRow，get(0) 获取 row 中的 int 值，即 partitionId 值
-        row => projection(row).getInt(0)
+        // projection(row) 会根据 h.partitionIdExpression Expression 计算 row 返回 UnsafeRow
+        // UnsafeRow 结果只有一个 hash 后的 int 值，get(0) 获取值，即 partitionId 值
+        row => projection.apply(row).getInt(0)
       case RangePartitioning(sortingExpressions, _) =>
         val projection = UnsafeProjection.create(sortingExpressions.map(_.child), outputAttributes)
         row => projection(row)
@@ -387,8 +394,8 @@ object ShuffleExchangeExec {
         val value: RDD[Product2[Int, InternalRow]] = newRdd.mapPartitionsWithIndexInternal((_, iter) => {
           val getPartitionKey: InternalRow => Any = getPartitionKeyExtractor()
           val mutablePair = new MutablePair[Int, InternalRow]()
-          // part.getPartition(key: Any) 根据对于的 Partitioner，获取 key 对应的 partitionId
-          // 而这里的 getPartitionKey 内部根据 row 进行了一次 hash
+          // getPartitionKey(row) 根据 row（不一定是所有 col，只是涉及的 col） 计算出对应的 partition key，
+          // 而对于 PartitionIdPassthrough(HashPartitioner) 分区器而言，partition key 本身就是一个有效的 partitio id
           iter.map { row => mutablePair.update(part.getPartition(getPartitionKey(row)), row) }
         }, isOrderSensitive = isOrderSensitive)
         value

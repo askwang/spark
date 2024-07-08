@@ -47,9 +47,11 @@ object V2ScanRelationPushDown extends Rule[LogicalPlan] with PredicateHelper {
       buildScanWithPushedAggregate,
       pruneColumns)
 
-    pushdownRules.foldLeft(plan) { (newPlan, pushDownRule) =>
-      pushDownRule(newPlan)
+    val data = pushdownRules.foldLeft(plan) {
+      (newPlan, pushDownRule) =>
+        pushDownRule(newPlan)
     }
+    data
   }
 
   private def createScanBuilder(plan: LogicalPlan) = plan.transform {

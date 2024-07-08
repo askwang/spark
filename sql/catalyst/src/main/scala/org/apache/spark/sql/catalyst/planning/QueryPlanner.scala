@@ -62,6 +62,16 @@ abstract class QueryPlanner[PhysicalPlan <: TreeNode[PhysicalPlan]] {
     // Collect physical plan candidates.
     val candidates = strategies.iterator.flatMap(_(plan))
 
+    /*val candidates =  strategies.iterator.flatMap{ strategy_middle =>
+      val my_plan=strategy_middle(plan)
+      if(my_plan.size>0) {
+        println(strategy_middle.getClass)
+        println(my_plan)
+        println()
+      }
+      my_plan
+    }*/
+
     // The candidates may contain placeholders marked as [[planLater]],
     // so try to replace them by their child plans.
     val plans = candidates.flatMap { candidate =>

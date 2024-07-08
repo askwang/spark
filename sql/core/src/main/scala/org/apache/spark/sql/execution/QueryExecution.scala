@@ -458,7 +458,7 @@ object QueryExecution {
       planChangeLogger.logRule(rule.ruleName, sp, result)
 
       /** askwang */
-      if(!result.equals(sp)) {
+      /*if(!result.equals(sp)) {
         println("--------------------preparations------------------")
         println(rule.ruleName)
         println(result)
@@ -491,7 +491,7 @@ object QueryExecution {
             operator
         }
         println()
-      }
+      }*/
       /** askwang */
 
       result

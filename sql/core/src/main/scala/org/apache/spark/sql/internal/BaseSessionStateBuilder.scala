@@ -245,6 +245,7 @@ abstract class BaseSessionStateBuilder(
    * Note: this depends on `catalog` and `experimentalMethods` fields.
    */
   protected def optimizer: Optimizer = {
+    // 默认的 Optimizer 是 SparkOptimizer
     new SparkOptimizer(catalogManager, catalog, experimentalMethods) {
       override def earlyScanPushDownRules: Seq[Rule[LogicalPlan]] =
         super.earlyScanPushDownRules ++ customEarlyScanPushDownRules

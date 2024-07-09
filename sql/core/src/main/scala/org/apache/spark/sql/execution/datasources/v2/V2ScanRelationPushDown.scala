@@ -37,8 +37,10 @@ import org.apache.spark.sql.util.SchemaUtils._
 object V2ScanRelationPushDown extends Rule[LogicalPlan] with PredicateHelper {
   import DataSourceV2Implicits._
 
+  // V2ScanRelationPushDown 本身是一个 SparkOptimizer Rule，将 LogicalPlan => LogicalPlan
+  // 但内部又实现了一些列的 pushdownRules 规则，进行 LogicalPlan => LogicalPlan 的转换
   def apply(plan: LogicalPlan): LogicalPlan = {
-    val pushdownRules = Seq[LogicalPlan => LogicalPlan] (
+    val pushdownRules: Seq[LogicalPlan => LogicalPlan] = Seq[LogicalPlan => LogicalPlan](
       createScanBuilder,
       pushDownSample,
       pushDownFilters,

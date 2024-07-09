@@ -34,8 +34,9 @@ class SparkOptimizer(
     experimentalMethods: ExperimentalMethods)
   extends Optimizer(catalogManager) {
 
-  override def earlyScanPushDownRules: Seq[Rule[LogicalPlan]] =
+  override def earlyScanPushDownRules: Seq[Rule[LogicalPlan]] = {
     // TODO: move SchemaPruning into catalyst
+    // V2ScanRelationPushDown 和 PushDownPredicates 区别？
     Seq(SchemaPruning) :+
       GroupBasedRowLevelOperationScanPlanning :+
       V1Writes :+
@@ -43,6 +44,7 @@ class SparkOptimizer(
       V2ScanPartitioningAndOrdering :+
       V2Writes :+
       PruneFileSourcePartitions
+  }
 
   override def preCBORules: Seq[Rule[LogicalPlan]] =
     OptimizeMetadataOnlyDeleteFromTable :: Nil
@@ -87,6 +89,7 @@ class SparkOptimizer(
     Batch("User Provided Optimizers", fixedPoint, experimentalMethods.extraOptimizations: _*) :+
     Batch("Replace CTE with Repartition", Once, ReplaceCTERefWithRepartition)
 
+  // 不能排除的规则
   override def nonExcludableRules: Seq[String] = super.nonExcludableRules :+
     ExtractPythonUDFFromJoinCondition.ruleName :+
     ExtractPythonUDFFromAggregate.ruleName :+ ExtractGroupingPythonUDFFromAggregate.ruleName :+

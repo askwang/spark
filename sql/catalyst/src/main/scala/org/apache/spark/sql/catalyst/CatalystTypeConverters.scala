@@ -67,6 +67,7 @@ object CatalystTypeConverters {
       case StringType => StringConverter
       case DateType if SQLConf.get.datetimeJava8ApiEnabled => LocalDateConverter
       case DateType => DateConverter
+      // TimestampType 类型添加了个 Java8TimeApi 判断，导致时区转换异常
       case TimestampType if SQLConf.get.datetimeJava8ApiEnabled => InstantConverter
       case TimestampType => TimestampConverter
       case TimestampNTZType => TimestampNTZConverter

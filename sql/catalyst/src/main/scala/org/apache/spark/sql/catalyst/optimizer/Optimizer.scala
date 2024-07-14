@@ -18,7 +18,6 @@
 package org.apache.spark.sql.catalyst.optimizer
 
 import scala.collection.mutable
-
 import org.apache.spark.sql.catalyst.SQLConfHelper
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.catalog.{InMemoryCatalog, SessionCatalog}
@@ -1663,11 +1662,30 @@ object PruneFilters extends Rule[LogicalPlan] with PredicateHelper {
  *  Filter-Join-Join-Join. Most predicates can be pushed down in a single pass.
  */
 object PushDownPredicates extends Rule[LogicalPlan] {
-  def apply(plan: LogicalPlan): LogicalPlan = plan.transformWithPruning(
+
+  /*def apply(plan: LogicalPlan): LogicalPlan = plan.transformWithPruning(
     _.containsAnyPattern(FILTER, JOIN)) {
     CombineFilters.applyLocally
       .orElse(PushPredicateThroughNonJoin.applyLocally)
       .orElse(PushPredicateThroughJoin.applyLocally)
+  }*/
+
+  private val rules = Seq(
+    CombineFilters,
+    PushPredicateThroughJoin,
+    PushPredicateThroughNonJoin)
+
+  def apply(plan: LogicalPlan): LogicalPlan = {
+    rules.foldLeft(plan) { case (sp, rule) =>
+      val result = rule.apply(sp)
+      val effective = !result.fastEquals(sp)
+      if (effective) {
+        println("[***************************PushDownPredicates***************** ")
+        println("PushDownPredicates子规则：" + rule.ruleName)
+        println(result)
+      }
+      result
+    }
   }
 }
 
@@ -1874,6 +1892,8 @@ object PushPredicateThroughJoin extends Rule[LogicalPlan] with PredicateHelper {
    * @return (canEvaluateInLeft, canEvaluateInRight, haveToEvaluateInBoth)
    */
   private def split(condition: Seq[Expression], left: LogicalPlan, right: LogicalPlan) = {
+    // 按表达式的 deterministic 属性进行划分，比如 random/自增 id 是 deterministic
+    // 如果是不确定性的表达式，则不能进行谓词下推
     val (pushDownCandidates, nonDeterministic) = condition.partition(_.deterministic)
     val (leftEvaluateCondition, rest) =
       pushDownCandidates.partition(_.references.subsetOf(left.outputSet))

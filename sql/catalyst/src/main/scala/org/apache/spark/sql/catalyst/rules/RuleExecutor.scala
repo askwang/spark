@@ -219,10 +219,12 @@ abstract class RuleExecutor[TreeType <: TreeNode[_]] extends Logging {
         curPlan = batch.rules.foldLeft(curPlan) {
           case (plan, rule) =>
             val startTime = System.nanoTime()
+            // rule.apply(plan) == rule(plan)
             val result = rule(plan)
             val runTime = System.nanoTime() - startTime
             val effective = !result.fastEquals(plan)
 
+            // plan 应用 rule 后发生了改变
             if (effective) {
               queryExecutionMetrics.incNumEffectiveExecution(rule.ruleName)
               queryExecutionMetrics.incTimeEffectiveExecutionBy(rule.ruleName, runTime)
@@ -241,6 +243,7 @@ abstract class RuleExecutor[TreeType <: TreeNode[_]] extends Logging {
                   case _ =>
                 }
               }
+
             }
             queryExecutionMetrics.incExecutionTimeBy(rule.ruleName, runTime)
             queryExecutionMetrics.incNumExecution(rule.ruleName)

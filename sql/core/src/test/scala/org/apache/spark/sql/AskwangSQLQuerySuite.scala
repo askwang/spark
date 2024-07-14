@@ -18,6 +18,7 @@
 package org.apache.spark.sql
 
 import org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanHelper
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.tags.ExtendedSQLTest
 import org.apache.spark.util.ResetSystemProperties
@@ -28,21 +29,42 @@ class AskwangSQLQuerySuite extends QueryTest with SharedSparkSession with Adapti
 
   setupTestData()
 
-  test("select timestamp field by where") {
+  test("sql query with filter timestamp") {
     withTable("tb") {
-      sql("CREATE TABLE `tb`(i INT, dt TIMESTAMP) USING parquet")
-      val ds = sql("INSERT INTO `tb` VALUES (1,cast(\"2024-04-11 11:01:00\" as Timestamp))")
+      withSQLConf(SQLConf.PLAN_CHANGE_LOG_LEVEL.key -> "INFO",
+        SQLConf.DATETIME_JAVA8API_ENABLED.key -> "true") {
+        sql("CREATE TABLE `tb`(i INT, dt TIMESTAMP) USING parquet")
+        val ds = sql("INSERT INTO `tb` VALUES (1,cast(\"2024-04-11 11:01:00\" as Timestamp))")
 
-      spark.conf.set("spark.sql.planChangeLog.level", "WARN")
-      println("=================================================")
-      val data = sql("SELECT * FROM `tb` where dt ='2024-04-11 11:01:00' ")
-      println("=================================================")
+        println("=================================================")
+        val data = sql("SELECT * FROM `tb` where dt ='2024-04-11 11:01:00' ")
 
-      spark.conf.set("spark.sql.planChangeLog.level", "INFO")
+        println(data.queryExecution)
+        println(data.show())
+        println(data.explain(true))
+      }
+    }
+  }
 
-      println(data.queryExecution)
-      println(data.show())
-      println(data.explain(true))
+  /**
+   * Optimized: Project [cast(col1#218 as int) AS id#222, cast(col2#219 as string) AS dt#223]
+   * Physical: Project [col1#218 AS id#222, col2#219 AS dt#223]
+   *
+   * askwang-todo: 哪个物理计划将 cast(null as int) 的转换去掉了？
+   * askwang-todo: row的转换逻辑,
+   */
+  test("writ pk table with pk null int type") {
+    withTable("tb") {
+      withSQLConf(SQLConf.PLAN_CHANGE_LOG_LEVEL.key -> "INFO",
+        SQLConf.DATETIME_JAVA8API_ENABLED.key -> "true") {
+        spark.sql(s"CREATE TABLE tb (id INT, dt string) " +
+          s"using parquet " +
+          s"TBLPROPERTIES ('primary-key'='id')")
+        val ds = sql("INSERT INTO `tb` VALUES (cast(NULL as int),cast(NULL as string))")
+        sql("SELECT * FROM `tb`").show
+
+        ds.explain(true)
+      }
     }
   }
 }

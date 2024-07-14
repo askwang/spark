@@ -1026,7 +1026,8 @@ object FoldablePropagation extends Rule[LogicalPlan] {
 object SimplifyCasts extends Rule[LogicalPlan] {
   def apply(plan: LogicalPlan): LogicalPlan = plan.transformAllExpressionsWithPruning(
     _.containsPattern(CAST), ruleId) {
-    case Cast(e, dataType, _, _) if e.dataType == dataType => e
+    case Cast(e, dataType, _, _)
+      if e.dataType == dataType => e
     case c @ Cast(Cast(e, dt1: NumericType, _, _), dt2: NumericType, _, _)
         if isWiderCast(e.dataType, dt1) && isWiderCast(dt1, dt2) =>
       c.copy(child = e)

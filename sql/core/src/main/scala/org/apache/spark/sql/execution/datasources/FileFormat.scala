@@ -137,6 +137,7 @@ trait FileFormat {
     val dataReader = buildReader(
       sparkSession, dataSchema, partitionSchema, requiredSchema, filters, options, hadoopConf)
 
+    // 本质是个匿名函数 file => dataReader(File)
     new (PartitionedFile => Iterator[InternalRow]) with Serializable {
       private val fullSchema = toAttributes(requiredSchema) ++ toAttributes(partitionSchema)
 

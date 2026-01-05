@@ -580,6 +580,7 @@ case class EnsureRequirements(
 
   def apply(plan: SparkPlan): SparkPlan = {
     val newPlan = plan.transformUp {
+      // 消除多余的 exchange 节点
       case operator @ ShuffleExchangeExec(upper: HashPartitioning, child, shuffleOrigin, _)
           if optimizeOutRepartition &&
             (shuffleOrigin == REPARTITION_BY_COL || shuffleOrigin == REPARTITION_BY_NUM) =>
@@ -598,7 +599,9 @@ case class EnsureRequirements(
         }
 
       case operator: SparkPlan =>
+        // 子节点的 outputpartitioning 的 key 的顺序和 join 的 key 顺序不一致时，调整一下顺序
         val reordered = reorderJoinPredicates(operator)
+        // 获取当前节点要求子节点满足的分区方式和排序方式
         val newChildren = ensureDistributionAndOrdering(
           Some(reordered),
           reordered.children,

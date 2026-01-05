@@ -184,6 +184,12 @@ object EliminateOuterJoin extends Rule[LogicalPlan] with PredicateHelper {
     lazy val leftHasNonNullPredicate = leftConditions.exists(canFilterOutNull)
     lazy val rightHasNonNullPredicate = rightConditions.exists(canFilterOutNull)
 
+    // left/right outer join => inner join
+    // full outer join => inner join, left/right outer join
+    // 判断 join 左右表是否有非空的过滤操作
+    // 比如 left outer join，右表存在 Filter a > 0
+    // left outer join 与右表关联不上的的列为 null，但由于右表加了过滤条件，列一定不存在 null 值。
+    // 这里的关键点在于，先 join 再 where 过滤，右表为 null 的一定会被过滤掉
     join.joinType match {
       case RightOuter if leftHasNonNullPredicate => Inner
       case LeftOuter if rightHasNonNullPredicate => Inner
@@ -204,10 +210,13 @@ object EliminateOuterJoin extends Rule[LogicalPlan] with PredicateHelper {
 
   def apply(plan: LogicalPlan): LogicalPlan = plan.transformWithPruning(
     _.containsPattern(OUTER_JOIN), ruleId) {
+    // Filter 子节点为 Join 节点
     case f @ Filter(condition, j @ Join(_, _, RightOuter | LeftOuter | FullOuter, _, _)) =>
+      // 进行 join 类型转换
       val newJoinType = buildNewJoinType(f, j)
       if (j.joinType == newJoinType) f else Filter(condition, j.copy(joinType = newJoinType))
 
+    // 下面 Aggregate 子节点为 Join，都是消除 join 的 case
     case a @ Aggregate(_, _, Join(left, _, LeftOuter, _, _))
         if a.references.subsetOf(left.outputSet) && allDuplicateAgnostic(a) =>
       a.copy(child = left)
@@ -333,6 +342,8 @@ trait JoinSelectionHelper {
           muchSmaller(right, left, conf)) ||
         forceApplyShuffledHashJoin(conf)
     }
+    // canBuildBroadcastLeft 和 canBuildBroadcastRight 根据 join 类型判断左右表是否可以广播
+    // left join 只能广播右表，right join 只能广播左表，inner join 左右表都可能被广播
     getBuildSide(
       canBuildShuffledHashJoinLeft(joinType) && buildLeft,
       canBuildShuffledHashJoinRight(joinType) && buildRight,

@@ -77,6 +77,7 @@ abstract class Optimizer(catalogManager: CatalogManager)
         PushProjectionThroughUnion,
         PushProjectionThroughLimit,
         ReorderJoin,
+        // outer join => inner join
         EliminateOuterJoin,
         PushDownPredicates,
         PushDownLeftSemiAntiJoin,
@@ -137,6 +138,8 @@ abstract class Optimizer(catalogManager: CatalogManager)
         operatorOptimizationRuleSet: _*) ::
       Batch("Infer Filters", Once,
         InferFiltersFromGenerate,
+        // 推断 filter 条件
+        // 比如 join 条件两边的列都不能为空，因此会增加 Filter isnotnull(field) 节点
         InferFiltersFromConstraints) ::
       Batch("Operator Optimization after Inferring Filters", fixedPoint,
         operatorOptimizationRuleSet: _*) ::
@@ -1390,6 +1393,7 @@ object InferFiltersFromConstraints extends Rule[LogicalPlan]
   with PredicateHelper with ConstraintHelper {
 
   def apply(plan: LogicalPlan): LogicalPlan = {
+    // 默认为 true
     if (conf.constraintPropagationEnabled) {
       inferFilters(plan)
     } else {
@@ -1916,6 +1920,7 @@ object PushPredicateThroughJoin extends Rule[LogicalPlan] with PredicateHelper {
     (leftEvaluateCondition, rightEvaluateCondition, commonCondition ++ nonDeterministic)
   }
 
+  // 判断 join 类型能否进行 push down
   private def canPushThrough(joinType: JoinType): Boolean = joinType match {
     case _: InnerLike | LeftSemi | RightOuter | LeftOuter | LeftAnti | ExistenceJoin(_) => true
     case _ => false
@@ -1924,13 +1929,17 @@ object PushPredicateThroughJoin extends Rule[LogicalPlan] with PredicateHelper {
   def apply(plan: LogicalPlan): LogicalPlan = plan transform applyLocally
 
   val applyLocally: PartialFunction[LogicalPlan, LogicalPlan] = {
+    // join + where(filter) case
     // push the where condition down into join filter
     case f @ Filter(filterCondition, Join(left, right, joinType, joinCondition, hint))
         if canPushThrough(joinType) =>
+      // split方法把condition分为三部分：
+      // 左侧数据表的字段，右侧数据表的字段，不可以下推的字段（包括不确定性+不在左右表outputset里的字段）
       val (leftFilterConditions, rightFilterConditions, commonFilterCondition) =
         split(splitConjunctivePredicates(filterCondition), left, right)
       joinType match {
         case _: InnerLike =>
+          // inner Join 把过滤条件下推到参加Join的两端
           // push down the single side `where` condition into respective sides
           val newLeft = leftFilterConditions.
             reduceLeftOption(And).map(Filter(_, left)).getOrElse(left)
@@ -1947,6 +1956,7 @@ object PushPredicateThroughJoin extends Rule[LogicalPlan] with PredicateHelper {
             join
           }
         case RightOuter =>
+          // RightOuter，把where子句的右侧数据表的过滤条件下推到右侧数据表
           // push down the right side only `where` condition
           val newLeft = left
           val newRight = rightFilterConditions.
@@ -1957,6 +1967,7 @@ object PushPredicateThroughJoin extends Rule[LogicalPlan] with PredicateHelper {
           (leftFilterConditions ++ commonFilterCondition).
             reduceLeftOption(And).map(Filter(_, newJoin)).getOrElse(newJoin)
         case LeftOuter | LeftExistence(_) =>
+          // LeftOuter，把where子句中左侧数据表的过滤条件下推到左侧数据表。
           // push down the left side only `where` condition
           val newLeft = leftFilterConditions.
             reduceLeftOption(And).map(Filter(_, left)).getOrElse(left)
@@ -1971,6 +1982,7 @@ object PushPredicateThroughJoin extends Rule[LogicalPlan] with PredicateHelper {
           throw new IllegalStateException(s"Unexpected join type: $other")
       }
 
+    // join + on case
     // push down the join filter into sub query scanning if applicable
     case j @ Join(left, right, joinType, joinCondition, hint) if canPushThrough(joinType) =>
       val (leftJoinConditions, rightJoinConditions, commonJoinCondition) =

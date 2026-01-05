@@ -271,9 +271,13 @@ object ShuffleExchangeExec {
       serializer: Serializer,
       writeMetrics: Map[String, SQLMetric])
     : ShuffleDependency[Int, InternalRow, InternalRow] = {
+    // 根据 Partitioning 分布创建对应的 Partitioner 分区器
     val part: Partitioner = newPartitioning match {
       case RoundRobinPartitioning(numPartitions) => new HashPartitioner(numPartitions)
       case HashPartitioning(_, n) =>
+        // HashPartitioning 的 partitionIdExpression 已经对 partition id 进行了计算，所以不需要再次进行分区划分
+        // def partitionIdExpression: Expression = Pmod(new Murmur3Hash(expressions), Literal(numPartitions))
+        // n 是指 numPartitions 分区个数
         // For HashPartitioning, the partitioning key is already a valid partition ID, as we use
         // `HashPartitioning.partitionIdExpression` to produce partitioning key.
         new PartitionIdPassthrough(n)
@@ -319,6 +323,8 @@ object ShuffleExchangeExec {
           position
         }
       case h: HashPartitioning =>
+        // 创建 Projection 映射（投影），具体每条 row 如何进行划分（可以理解为 row 对于哪个 bucket）
+        // projection(row) 返回 UnsafeRow，get(0) 获取 row 中的 int 值，即 partitionId 值
         val projection = UnsafeProjection.create(h.partitionIdExpression :: Nil, outputAttributes)
         row => projection(row).getInt(0)
       case RangePartitioning(sortingExpressions, _) =>
@@ -389,6 +395,8 @@ object ShuffleExchangeExec {
         newRdd.mapPartitionsWithIndexInternal((_, iter) => {
           val getPartitionKey = getPartitionKeyExtractor()
           val mutablePair = new MutablePair[Int, InternalRow]()
+          // part.getPartition(key: Any) 根据对于的 Partitioner，获取 key 对应的 partitionId
+          // 而这里的 getPartitionKey 内部根据 row 进行了一次 hash
           iter.map { row => mutablePair.update(part.getPartition(getPartitionKey(row)), row) }
         }, isOrderSensitive = isOrderSensitive)
       }

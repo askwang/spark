@@ -90,6 +90,13 @@ case class ClusteredDistribution(
       "An AllTuples should be used to represent a distribution that only has " +
       "a single partition.")
 
+  // 比如 HashAggregateExec SparkPlan 的 requiredChildDistribution 类型为 List[ClusteredDistribution]
+  // 当 child.outputPartitioning.satisfies(distribution) 不满足时
+  // 则会给 child 节点添加一个 ShuffleExchangeExec 的父节点，其 Partitioning 类型为 HashPartitioning
+  // 见 EnsureRequirements 规则：ShuffleExchangeExec(distribution.createPartitioning(numPartitions), child, shuffleOrigin)
+  //
+  // HashAggregateExec: requiredChildDistribution: List[ClusteredDistribution]
+  // SortMergeJoinExec: requiredChildDistribution: Seq[ClusteredDistribution]
   override def createPartitioning(numPartitions: Int): Partitioning = {
     assert(requiredNumPartitions.isEmpty || requiredNumPartitions.get == numPartitions,
       s"This ClusteredDistribution requires ${requiredNumPartitions.get} partitions, but " +

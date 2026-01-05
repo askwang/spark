@@ -476,6 +476,43 @@ object QueryExecution {
     val preparedPlan = preparations.foldLeft(plan) { case (sp, rule) =>
       val result = rule.apply(sp)
       planChangeLogger.logRule(rule.ruleName, sp, result)
+
+      /**
+       if(!result.equals(sp)) {
+       println("--------------------preparations------------------")
+       println(rule.ruleName)
+       println(result)
+       result.transformUp {
+       case operator: SparkPlan =>
+       println("--------- operator.requiredChildDistribution ----------")
+       println(operator.nodeName + "--" + operator.getClass.getName + "   " + operator.requiredChildDistribution)
+       println()
+       println("--------- perator.requiredChildOrdering ----------")
+       println(operator.nodeName + "--" + operator.getClass.getName + "   " + operator.requiredChildOrdering)
+       println()
+       println("--------- operator.outputPartitioning ----------")
+       println(operator.nodeName + "--" + operator.getClass.getName + "   " + operator.outputPartitioning)
+       println()
+       operator
+       }
+       println()
+       sp.transformUp {
+       case operator: SparkPlan =>
+       println("---------sp operator.requiredChildDistribution ----------")
+       println(operator.nodeName + "--" + operator.getClass.getName + "   " + operator.requiredChildDistribution)
+       println()
+       println("---------sp perator.requiredChildOrdering ----------")
+       println(operator.nodeName + "--" + operator.getClass.getName + "   " + operator.requiredChildOrdering)
+       println()
+       println("---------sp operator.outputPartitioning ----------")
+       println(operator.nodeName + "--" + operator.getClass.getName + "   " + operator.outputPartitioning)
+       println()
+       operator
+       }
+       println()
+       }
+       */
+
       result
     }
     planChangeLogger.logBatch("Preparations", plan, preparedPlan)

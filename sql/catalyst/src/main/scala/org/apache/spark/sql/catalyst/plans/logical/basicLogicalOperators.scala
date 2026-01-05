@@ -1866,6 +1866,8 @@ case class RepartitionByExpression(
 
   require(optNumPartitions.isEmpty || optAdvisoryPartitionSize.isEmpty)
 
+  // 默认返回 HashPartitioning
+  // HashPartitioning 指数据的分区方式，HashPartitioner 指对数据进行划分的分区器
   override val partitioning: Partitioning = {
     if (numPartitions == 1) {
       SinglePartition

@@ -297,9 +297,15 @@ abstract class SparkStrategies extends QueryPlanner[SparkPlan] {
             }
         }
 
+        // 等值 join 情况的 join 策略选择，分为有 hint 和无 hint 场景
         if (hint.isEmpty) {
+          // BroadcastHashJoin > ShuffleHashJoin > SortMergeJoin > CartesianProduct > BroadcastNestedLoopJoin
+          // 默认 ShuffleHashJoin 是关闭的，容易 oom
           createJoinWithoutHint()
         } else {
+          // JoinStrategyHint 的几种类型：
+          // BROADCAST, SHUFFLE_MERGE, SHUFFLE_HASH
+          // NO_BROADCAST_HASH, PREFER_SHUFFLE_HASH, NO_BROADCAST_AND_REPLICATION
           createBroadcastHashJoin(true)
             .orElse { if (hintToSortMergeJoin(hint)) createSortMergeJoin() else None }
             .orElse(createShuffleHashJoin(true))

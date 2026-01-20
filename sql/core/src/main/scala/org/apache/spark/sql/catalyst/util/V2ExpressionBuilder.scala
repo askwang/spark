@@ -27,6 +27,9 @@ import org.apache.spark.sql.types.{BooleanType, DataType, IntegerType, StringTyp
 
 /**
  * The builder to generate V2 expressions from catalyst expressions.
+ *
+ * [[org.apache.spark.sql.catalyst.expressions.Expression]]  =>
+ * [[org.apache.spark.sql.connector.expressions.Expression]] V2Expression.
  */
 class V2ExpressionBuilder(e: Expression, isPredicate: Boolean = false) {
 
@@ -49,7 +52,7 @@ class V2ExpressionBuilder(e: Expression, isPredicate: Boolean = false) {
     case Literal(false, BooleanType) => Some(new AlwaysFalse())
     case Literal(value, dataType) => Some(LiteralValue(value, dataType))
     case col @ ColumnOrField(nameParts) =>
-      val ref = FieldReference(nameParts)
+      val ref: FieldReference = FieldReference(nameParts)
       if (isPredicate && col.dataType.isInstanceOf[BooleanType]) {
         Some(new V2Predicate("=", Array(ref, LiteralValue(true, BooleanType))))
       } else {
@@ -162,7 +165,9 @@ class V2ExpressionBuilder(e: Expression, isPredicate: Boolean = false) {
         b match {
           case _: BinaryComparison if l.get.isInstanceOf[LiteralValue[_]] &&
               r.get.isInstanceOf[FieldReference] =>
-            Some(new V2Predicate(flipComparisonOperatorName(b.sqlOperator),
+            // flipComparisonOperatorName 取反
+            // 规整 V2Predicate 表达式，左边是 FieldReference，右边是 LiteralValue
+          Some(new V2Predicate(flipComparisonOperatorName(b.sqlOperator),
               Array[V2Expression](r.get, l.get)))
           case _: Predicate =>
             Some(new V2Predicate(b.sqlOperator, Array[V2Expression](l.get, r.get)))

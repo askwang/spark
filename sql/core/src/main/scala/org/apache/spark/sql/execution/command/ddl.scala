@@ -525,7 +525,8 @@ case class AlterTableAddPartitionCommand(
     // Also the request to metastore times out when adding lot of partitions in one shot.
     // we should split them into smaller batches
     val batchSize = conf.getConf(SQLConf.ADD_PARTITION_BATCH_SIZE)
-    parts.iterator.grouped(batchSize).foreach { batch =>
+    val partitions = parts.iterator.grouped(batchSize)
+    partitions.foreach { batch =>
       catalog.createPartitions(table.identifier, batch, ignoreIfExists = ifNotExists)
     }
 
@@ -614,7 +615,7 @@ case class AlterTableDropPartitionCommand(
     val table = catalog.getTableMetadata(tableName)
     DDLUtils.verifyPartitionProviderIsHive(sparkSession, table, "ALTER TABLE DROP PARTITION")
 
-    val normalizedSpecs = specs.map { spec =>
+    val normalizedSpecs: Seq[Map[String, String]] = specs.map { spec =>
       PartitioningUtils.normalizePartitionSpec(
         spec,
         table.partitionSchema,

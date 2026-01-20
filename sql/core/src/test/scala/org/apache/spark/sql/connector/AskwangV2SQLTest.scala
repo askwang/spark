@@ -17,18 +17,25 @@
 
 package org.apache.spark.sql.connector
 
-import org.apache.spark.sql.catalyst.statsEstimation.StatsEstimationTestBase
-import org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanHelper
-
 /**
  * copy from [[DataSourceV2SQLSuite]]
  */
-abstract class AskwangV2SQLTest
-  extends InsertIntoTests(supportsDynamicOverwrite = true, includeSQLOnlyTests = true)
-    with DeleteFromTests with DatasourceV2SQLBase with StatsEstimationTestBase
-    with AdaptiveSparkPlanHelper {
+class AskwangV2SQLTest
+  extends DataSourceV2SQLSuite
+    {
 
-  protected val v2Source = classOf[FakeV2Provider].getName
-  override protected val v2Format = v2Source
+      override protected val catalogAndNamespace = "testv2filter.ns1.ns2."
+
+
+  test("insertInto") {
+    val t1 = "tbl"
+    withTable(t1) {
+      sql(s"CREATE TABLE $t1 (id int, data string) USING foo partitioned by (day string, hour string)")
+
+      sql(s"INSERT INTO $t1 VALUES(1, 'a', '2026-01-01', '01')")
+
+      sql(s"show partitions $t1").show(false)
+    }
+  }
 
 }

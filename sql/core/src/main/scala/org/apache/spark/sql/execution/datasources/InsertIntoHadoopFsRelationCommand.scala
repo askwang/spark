@@ -147,6 +147,7 @@ case class InsertIntoHadoopFsRelationCommand(
         if (partitionsTrackedByCatalog) {
           val newPartitions = updatedPartitions -- initialMatchingPartitions
           if (newPartitions.nonEmpty) {
+            // 通过 command 添加分区
             AlterTableAddPartitionCommand(
               catalogTable.get.identifier, newPartitions.toSeq.map(p => (p, None)),
               ifNotExists = true).run(sparkSession)

@@ -451,8 +451,9 @@ class InMemoryCatalog(
       purge: Boolean,
       retainData: Boolean): Unit = synchronized {
     requireTableExists(db, table)
-    val existingParts = catalog(db).tables(table).partitions
-    val partSpecs = toCatalogPartitionSpecs(parts)
+    val existingParts: mutable.HashMap[TablePartitionSpec, CatalogTablePartition] =
+      catalog(db).tables(table).partitions
+    val partSpecs: Seq[TablePartitionSpec] = toCatalogPartitionSpecs(parts)
     if (!ignoreIfNotExists) {
       val missingSpecs = partSpecs.collect { case s if !existingParts.contains(s) => s }
       if (missingSpecs.nonEmpty) {

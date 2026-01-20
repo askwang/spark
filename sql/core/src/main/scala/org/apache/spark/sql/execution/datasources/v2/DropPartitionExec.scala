@@ -37,7 +37,8 @@ case class DropPartitionExec(
   override def output: Seq[Attribute] = Seq.empty
 
   override protected def run(): Seq[InternalRow] = {
-    val (existsPartIdents, notExistsPartIdents) =
+    // 需实现 SupportsPartitionManagement 接口的 listPartitionIdentifiers
+    val (existsPartIdents: Seq[InternalRow], notExistsPartIdents) =
       partSpecs.map(_.ident).partition(table.partitionExists)
 
     if (notExistsPartIdents.nonEmpty && !ignoreIfNotExists) {
@@ -48,9 +49,11 @@ case class DropPartitionExec(
     val isTableAltered = existsPartIdents match {
       case Seq() => false // Nothing will be done
       case Seq(partIdent) =>
+        // askwang-done: purgePartition 和 dropPartition 的区别
+        // purge 表示删数据不经过回收站，不过 spark/inMemory/hive 都不支持这个操作，哪里会用到？
         if (purge) table.purgePartition(partIdent) else table.dropPartition(partIdent)
       case _ if table.isInstanceOf[SupportsAtomicPartitionManagement] =>
-        val idents = existsPartIdents.toArray
+        val idents: Array[InternalRow] = existsPartIdents.toArray
         val atomicTable = table.asAtomicPartitionable
         if (purge) atomicTable.purgePartitions(idents) else atomicTable.dropPartitions(idents)
       case _ =>

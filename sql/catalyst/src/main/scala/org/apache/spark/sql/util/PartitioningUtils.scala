@@ -72,9 +72,9 @@ private[sql] object PartitioningUtils {
       partCols: StructType,
       tblName: String,
       resolver: Resolver): Map[String, T] = {
-    val rawSchema = CharVarcharUtils.getRawSchema(partCols, SQLConf.get)
+    val rawSchema: StructType = CharVarcharUtils.getRawSchema(partCols, SQLConf.get)
     val normalizedPartSpec = partitionSpec.toSeq.map { case (key, value) =>
-      val normalizedFiled = rawSchema.find(f => resolver(f.name, key)).getOrElse {
+      val normalizedFiled: StructField = rawSchema.find(f => resolver(f.name, key)).getOrElse {
         throw QueryCompilationErrors.invalidPartitionColumnKeyInTableError(key, tblName)
       }
 

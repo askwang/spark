@@ -43,6 +43,8 @@ object V2Writes extends Rule[LogicalPlan] with PredicateHelper {
 
   override def apply(plan: LogicalPlan): LogicalPlan = plan transformDown {
     case a @ AppendData(r: DataSourceV2Relation, query, options, _, None, _) =>
+      // paimon: SparkTable extends SupportsWrite, PaimonWriteBuilder
+      // paimon: PaimonWrite extends V1Write extends Write
       val writeBuilder = newWriteBuilder(r.table, options, query.schema)
       val write = writeBuilder.build()
       val newQuery = DistributionAndOrderingUtils.prepareQuery(write, query, r.funCatalog)

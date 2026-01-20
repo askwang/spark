@@ -39,9 +39,11 @@ object ResolvePartitionSpec extends Rule[LogicalPlan] {
     case command: V2PartitionCommand if command.childrenResolved && !command.resolved =>
       command.table match {
         case r @ ResolvedTable(_, _, table: SupportsPartitionManagement, _) =>
+          // askwang-todo：理解 transformExpressions，如何找到 UnresolvedPartitionSpec
           command.transformExpressions {
             case partSpecs: UnresolvedPartitionSpec =>
               val partitionSchema = table.partitionSchema()
+              // return ResolvedPartitionSpec
               resolvePartitionSpec(
                 r.name,
                 partSpecs,
@@ -57,16 +59,22 @@ object ResolvePartitionSpec extends Rule[LogicalPlan] {
       partSpec: UnresolvedPartitionSpec,
       partSchema: StructType,
       allowPartitionSpec: Boolean): ResolvedPartitionSpec = {
+    // partSchema 是表的 schema 信息
+    // partSpec 是 alter table T partition (day='1', hour='2') 的 partition 信息，即 Map<<day,1>, <hour,2>>
     val normalizedSpec = normalizePartitionSpec(
       partSpec.spec,
       partSchema,
       tableName,
       conf.resolver)
     if (!allowPartitionSpec) {
+      // check partSpec 的 key 信息是否和 partSchema 的字段完全匹配
       requireExactMatchedPartitionSpec(tableName, normalizedSpec, partSchema.fieldNames)
     }
     val partitionNames = normalizedSpec.keySet
-    val requestedFields = partSchema.filter(field => partitionNames.contains(field.name))
+    val requestedFields: Seq[StructField] = partSchema.filter(field => partitionNames.contains(field.name))
+    // convertToPartIdent 根据 partSchema 弱化 partition(pt2, pt1) 的顺序
+    // 比如 partSchema：StructType<day string, hour string>
+    // partSpec: Map<hour='01', day='2026-01-01'> 会根据 partSchema 的顺序获取分区字段的值，然后封装成 InternalRow
     ResolvedPartitionSpec(
       requestedFields.map(_.name),
       convertToPartIdent(normalizedSpec, requestedFields),
@@ -77,14 +85,15 @@ object ResolvePartitionSpec extends Rule[LogicalPlan] {
       partitionSpec: TablePartitionSpec,
       schema: Seq[StructField]): InternalRow = {
     val partValues = schema.map { part =>
-      val raw = partitionSpec.get(part.name).orNull
-      val dt = CharVarcharUtils.replaceCharVarcharWithString(part.dataType)
+      val raw: String = partitionSpec.get(part.name).orNull
+      val dt: DataType = CharVarcharUtils.replaceCharVarcharWithString(part.dataType)
       if (SQLConf.get.getConf(SQLConf.SKIP_TYPE_VALIDATION_ON_ALTER_PARTITION)) {
         Cast(Literal.create(raw, StringType), dt, Some(conf.sessionLocalTimeZone)).eval()
       } else {
         castPartitionSpec(raw, dt, conf).eval()
       }
     }
+    // 生成 GenericInternalRow(val values: Array[Any]) extends InternalRow
     InternalRow.fromSeq(partValues)
   }
 }

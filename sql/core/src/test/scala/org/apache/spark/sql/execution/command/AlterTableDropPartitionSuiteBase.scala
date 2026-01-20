@@ -81,6 +81,7 @@ trait AlterTableDropPartitionSuiteBase extends QueryTest with DDLCommandTestUtil
       sql(s"CREATE TABLE $t (id bigint, a int, b string) $defaultUsing PARTITIONED BY (a, b)")
       Seq("", "IF EXISTS").foreach { ifExists =>
         sql(s"ALTER TABLE $t ADD PARTITION (a = 2, b = 'abc')")
+        sql(s"show partitions $t").show(false)
         checkDropPartition(t, ifExists, Map("a" -> 2, "b" -> "abc"))
       }
     }

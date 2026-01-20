@@ -262,6 +262,7 @@ class DataSourceV2Strategy(session: SparkSession) extends Strategy with Predicat
       write match {
         case v1Write: V1Write =>
           assert(analyzedQuery.isDefined)
+          // paimon: v1 -> SparkTable extends SupportsWrite
           AppendDataExecV1(v1, analyzedQuery.get, refreshCache(r), v1Write) :: Nil
         case v2Write =>
           throw QueryCompilationErrors.batchWriteCapabilityError(

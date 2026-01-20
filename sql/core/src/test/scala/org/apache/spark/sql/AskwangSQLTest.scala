@@ -137,16 +137,37 @@ class AskwangSQLTest extends QueryTest with SharedSparkSession with AdaptiveSpar
   }
 
   test("create temp view") {
-    withTable("t") {
-      Seq(2, 3, 1).toDF("c1").write.format("parquet").saveAsTable("t")
+    // spark.sql.planChangeLog.rules
+    withSQLConf("spark.sql.planChangeLog.level" -> "TRACE") {
+      withTable("t") {
+        Seq(2, 3, 1).toDF("c1").write.format("parquet").saveAsTable("t")
 
-      // SqlBaseParser.g4 语法文件
-      // createView: CreateViewCommand
-      // createTempViewUsing: CreateTempViewUsing
-      sql("create temp view v1 as select c1 from t").explain(true)
+        // SqlBaseParser.g4 语法文件
+        // createView: CreateViewCommand
+        // createTempViewUsing: CreateTempViewUsing
+//        sql("create temp view v1 as select c1 from t").explain(true)
 
-      println("===")
-
+        println("===")
+      }
     }
+  }
+
+  test("alter table drop partition") {
+    sql(
+      s"""
+         |CREATE TABLE T (id STRING, appid string) using parquet
+         | PARTITIONED BY (day string, hour string)
+         |""".stripMargin)
+
+    sql(" insert into T values ('1', '004', '2026-01-15', '15');")
+    sql(" insert into T values ('1', '004', '2026-01-15', '16');")
+    sql(" insert into T values ('1', '003', '2026-01-16', '16');")
+    sql(" insert into T values ('2', '004', '2026-01-16', '17');")
+    sql("show partitions T").show(false)
+
+    val df = sql("alter table T drop partition (day='2026-01-15', hour = '16')")
+
+    sql("show partitions T").show(false)
+
   }
 }

@@ -184,6 +184,9 @@ class SupportsPartitionManagementSuite extends SparkFunSuite {
 
   test("listPartitionByNames") {
     val partTable = createMultiPartTable()
+    val rows = partTable.listPartitionIdentifiers(Array.empty, InternalRow.empty)
+    val allRows = rows.map(row => row.toString).mkString(", ")
+    println(allRows)
 
     Seq(
       (Array("part0", "part1"), InternalRow(0, "abc")) -> Set(InternalRow(0, "abc")),
@@ -193,8 +196,9 @@ class SupportsPartitionManagementSuite extends SparkFunSuite {
         Set(InternalRow(0, "abc"), InternalRow(0, "def"), InternalRow(1, "abc")),
       (Array("part0", "part1"), InternalRow(3, "xyz")) -> Set(),
       (Array("part1"), InternalRow(3.14f)) -> Set()
-    ).foreach { case ((names, idents), expected) =>
-      assert(partTable.listPartitionIdentifiers(names, idents).toSet === expected)
+    ).foreach {
+      case ((names, idents), expected) =>
+        assert(partTable.listPartitionIdentifiers(names, idents).toSet === expected)
     }
     // Check invalid parameters
     Seq(

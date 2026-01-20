@@ -78,4 +78,14 @@ class AlterTableDropPartitionSuite
       checkPartitions(t)
     }
   }
+
+  // not work
+  test("drop partitions") {
+    withNamespaceAndTable("ns", "tbl") { t =>
+      sql(s"CREATE TABLE $t (id INT, name string, day STRING, hour string) $defaultUsing PARTITIONED BY (day, hour)")
+      sql(s"ALTER TABLE $t ADD PARTITION (day='2026-01-01', hour='01')")
+      println("=====")
+      sql(s"show partitions $t").show(false)
+    }
+  }
 }

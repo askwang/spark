@@ -360,6 +360,7 @@ private[sql] object CatalogV2Util {
           .map(TableWritePrivilege.valueOf).toSet.asJava
         catalog.asTableCatalog.loadTable(ident, writePrivileges)
       } else {
+        // paimon: SparkBaseCatalog extends TableCatalog
         catalog.asTableCatalog.loadTable(ident)
       }
     }

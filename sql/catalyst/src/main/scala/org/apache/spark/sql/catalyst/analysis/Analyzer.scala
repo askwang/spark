@@ -1294,6 +1294,7 @@ class Analyzer(override val catalogManager: CatalogManager) extends RuleExecutor
         timeTravelSpec: Option[TimeTravelSpec] = None): Option[LogicalPlan] = {
       resolveTempView(u.multipartIdentifier, u.isStreaming, timeTravelSpec.isDefined).orElse {
         expandIdentifier(u.multipartIdentifier) match {
+          // 析构出 CatalogPlugin
           case CatalogAndIdentifier(catalog, ident) =>
             val key = ((catalog.name +: ident.namespace :+ ident.name).toSeq, timeTravelSpec)
             AnalysisContext.get.relationCache.get(key).map { cache =>
@@ -1311,8 +1312,10 @@ class Analyzer(override val catalogManager: CatalogManager) extends RuleExecutor
             }.orElse {
               val writePrivilegesString =
                 Option(u.options.get(UnresolvedRelation.REQUIRED_WRITE_PRIVILEGES))
+              // load SparkTable(table: Table)，SparkTable 属性table 是paimon的内部Table接口，即FileStoreTable
               val table = CatalogV2Util.loadTable(
                 catalog, ident, timeTravelSpec, writePrivilegesString)
+              // 创建 DataSourceV2Relation
               val loaded = createRelation(
                 catalog, ident, table, u.clearWritePrivileges.options, u.isStreaming)
               loaded.foreach(AnalysisContext.get.relationCache.update(key, _))

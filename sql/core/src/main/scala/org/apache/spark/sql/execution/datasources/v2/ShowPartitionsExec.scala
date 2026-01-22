@@ -40,7 +40,7 @@ case class ShowPartitionsExec(
       // listPartitionByNames() should return all partitions if the partition spec
       // does not specify any partition names.
       .getOrElse((Seq.empty[String], InternalRow.empty))
-    val partitionIdentifiers = table.listPartitionIdentifiers(names.toArray, ident)
+    val partitionIdentifiers: Array[InternalRow] = table.listPartitionIdentifiers(names.toArray, ident)
     // Converting partition identifiers as `InternalRow` of partition values,
     // for instance InternalRow(value0, value1, ..., valueN), to `InternalRow`s
     // with a string in the format: "col0=value0/col1=value1/.../colN=valueN".
@@ -48,10 +48,11 @@ case class ShowPartitionsExec(
     val len = schema.length
     val partitions = new Array[String](len)
     val timeZoneId = conf.sessionLocalTimeZone
-    val output = partitionIdentifiers.map { row =>
+    val output: Array[String] = partitionIdentifiers.map { row =>
       var i = 0
       while (i < len) {
         val dataType = schema(i).dataType
+        // Literal.create(row.get(i, dataType), dataType)
         val partValueUTF8String =
           Cast(Literal(row.get(i, dataType), dataType), StringType, Some(timeZoneId)).eval()
         val partValueStr = if (partValueUTF8String == null) "null" else partValueUTF8String.toString

@@ -41,6 +41,7 @@ case class ShowPartitionsExec(
       // does not specify any partition names.
       .getOrElse((Seq.empty[String], InternalRow.empty))
     val partitionIdentifiers: Array[InternalRow] = table.listPartitionIdentifiers(names.toArray, ident)
+
     // Converting partition identifiers as `InternalRow` of partition values,
     // for instance InternalRow(value0, value1, ..., valueN), to `InternalRow`s
     // with a string in the format: "col0=value0/col1=value1/.../colN=valueN".

@@ -3705,14 +3705,17 @@ class Analyzer(override val catalogManager: CatalogManager) extends RuleExecutor
         // For example, if we add columns "a.b.c", "a.b.d", and "a.c", 'colsToAdd' will become
         // Map(Seq("a", "b") -> Seq("c", "d"), Seq("a") -> Seq("c")).
         val colsToAdd = mutable.Map.empty[Seq[String], Seq[String]]
+
         def resolvePosition(
             col: QualifiedColType,
             parentSchema: StructType,
             resolvedParentName: Seq[String]): Option[FieldPosition] = {
+          // colsToAdd 维护已经添加的列，比如 add columns (c1 int, c2 string after c1)，c2 依赖 c1
           val fieldsAdded = colsToAdd.getOrElse(resolvedParentName, Nil)
           val resolvedPosition = col.position.map {
             case u: UnresolvedFieldPosition => u.position match {
               case after: After =>
+                // fieldsAdded 表示已经添加过的字段，也要纳入表的有效字段中
                 val allFields = parentSchema.fieldNames ++ fieldsAdded
                 allFields.find(n => conf.resolver(n, after.column())) match {
                   case Some(colName) =>
@@ -3725,15 +3728,17 @@ class Analyzer(override val catalogManager: CatalogManager) extends RuleExecutor
             }
             case resolved => resolved
           }
+          // 更新新增的 col
           colsToAdd(resolvedParentName) = fieldsAdded :+ col.colName
           resolvedPosition
         }
+
         val schema = r.table.columns.asSchema
         val resolvedCols = cols.map { col =>
           col.path match {
             case Some(parent: UnresolvedFieldName) =>
               // Adding a nested field, need to resolve the parent column and position.
-              val resolvedParent = resolveFieldNames(r, parent.name, parent)
+              val resolvedParent: ResolvedFieldName = resolveFieldNames(r, parent.name, parent)
               val parentSchema = resolvedParent.field.dataType match {
                 case s: StructType => s
                 case _ => throw QueryCompilationErrors.invalidFieldName(

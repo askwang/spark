@@ -102,6 +102,7 @@ case class UnsetTableProperties(
 case class AddColumns(
     table: LogicalPlan,
     columnsToAdd: Seq[QualifiedColType]) extends AlterTableCommand {
+
   columnsToAdd.foreach { c =>
     TypeUtils.failWithIntervalType(c.dataType)
   }
